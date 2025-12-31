@@ -1,0 +1,74 @@
+name: grammar_checker
+description: Multilingual grammar checking and rewriting application.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Networking
+  dio: ^5.4.0
+
+  # Immutable Models
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+
+  # UI Components
+  shimmer: ^3.0.0
+  flutter_animate: ^4.3.0
+  flutter_svg: ^2.0.9
+  google_fonts: ^6.1.0
+  glassmorphism: ^3.0.0
+  animated_text_kit: ^4.2.2
+  lottie: ^3.0.0
+
+  # Text Diff
+  diff_match_patch: ^0.4.1
+
+  # Platform Utilities
+  universal_platform: ^1.0.0+1
+
+  # Icons
+  cupertino_icons: ^1.0.6
+  iconsax: ^0.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+  # Code Generation
+  build_runner: ^2.4.8
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  riverpod_generator: ^2.3.9
+
+  # App Icon Generation
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+  image_path: "assets/images/ileterate-logo-only.png"
+  adaptive_icon_background: "#1E1B4B"
+  adaptive_icon_foreground: "assets/images/ileterate-logo-only.png"
+  macos:
+    generate: true
+    image_path: "assets/images/ileterate-logo-only.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

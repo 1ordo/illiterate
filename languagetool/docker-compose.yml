@@ -1,0 +1,45 @@
+# LanguageTool Docker Compose Configuration
+#
+# This runs LanguageTool as a local HTTP API for grammar checking.
+# Access the API at: http://localhost:8081/v2
+#
+# Usage:
+#   docker-compose up -d          # Start in background
+#   docker-compose logs -f        # View logs
+#   docker-compose down           # Stop
+#
+# Test the API:
+#   curl -X POST http://localhost:8081/v2/check \
+#     -d "text=Ik heb de boek gelezen." \
+#     -d "language=nl"
+
+services:
+  languagetool:
+    image: erikvl87/languagetool:latest
+    container_name: languagetool
+    ports:
+      - "8081:8010"
+    environment:
+      # Memory settings
+      - Java_Xms=512m
+      - Java_Xmx=2g
+      # Language model (optional, for better detection)
+      - langtool_languageModel=/ngrams
+      # Disable telemetry
+      - langtool_disabledRuleIds=
+    volumes:
+      # Optional: Mount n-gram data for improved detection
+      # Download from: https://languagetool.org/download/ngram-data/
+      - ./ngrams:/ngrams:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/v2/languages"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Optional: Network for connecting with backend
+networks:
+  default:
+    name: grammar-network
