@@ -1,15 +1,16 @@
 """
-Grammar Checking API - FastAPI Application.
+ileterate Grammar API - FastAPI Application.
 
 A production-ready, multilingual grammar checking and rewriting system
-using LanguageTool (rule-based) and local LLM (semantic correction).
+using LanguageTool (rule-based) and LLM (semantic correction).
 
-Author: Grammar Check System
+Author: ileterate Team
 Version: 1.0.0
+License: MIT
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
@@ -23,10 +24,13 @@ from .models.response import (
 )
 from .services.pipeline import GrammarPipeline
 from .utils.cache import get_cache
+from .middleware.auth import api_key_middleware
+from .middleware.encryption import encryption_service, EncryptionMiddleware
 
 # Configure logging
+settings = get_settings()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
@@ -41,20 +45,40 @@ async def lifespan(app: FastAPI):
     global pipeline
 
     # Startup
-    logger.info("Starting Grammar Check API...")
+    logger.info("Starting ileterate Grammar API...")
+    logger.info(f"Version: {settings.app_version}")
+    logger.info(f"Debug mode: {settings.debug}")
+
+    # Initialize encryption if enabled
+    if settings.encryption_enabled:
+        if encryption_service.initialize(
+            private_key_path=settings.rsa_private_key_path,
+            public_key_path=settings.rsa_public_key_path
+        ):
+            logger.info("Encryption service initialized")
+        else:
+            logger.warning("Encryption enabled but failed to initialize")
+
+    # Log security status
+    if settings.api_key:
+        logger.info("API key authentication: ENABLED")
+    else:
+        logger.warning("API key authentication: DISABLED (set GRAMMAR_API_KEY to enable)")
+
+    # Initialize pipeline
     pipeline = GrammarPipeline()
 
     # Check services
-    status = await pipeline.check_services()
-    logger.info(f"Service status: {status}")
+    service_status = await pipeline.check_services()
+    logger.info(f"Service status: {service_status}")
 
-    if not status["languagetool"]:
+    if not service_status["languagetool"]:
         logger.warning(
             "LanguageTool is not available! "
             "Make sure it's running on the configured URL."
         )
 
-    if not status["llm"]:
+    if not service_status["llm"]:
         logger.warning(
             "LLM is not available! "
             "Will use rule-based fallback for corrections."
@@ -63,17 +87,15 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    logger.info("Shutting down Grammar Check API...")
+    logger.info("Shutting down ileterate Grammar API...")
     get_cache().clear()
 
 
 # Create FastAPI app
-settings = get_settings()
-
 app = FastAPI(
     title=settings.app_name,
     description="""
-## Multilingual Grammar Checking API
+## ileterate - Multilingual Grammar Checking API
 
 A two-stage grammar correction pipeline:
 1. **LanguageTool** - Rule-based grammar, spelling, and style detection
@@ -85,22 +107,37 @@ A two-stage grammar correction pipeline:
 - Automatic fallback to rule-based correction
 - Rewrite suggestions with different tones
 - Detailed explanations for corrections
+- API key authentication (optional)
+- End-to-end encryption (optional)
+
+### Authentication
+If API key is configured, include the `X-API-Key` header in all requests.
+
+### Encryption
+For E2E encryption, use `Content-Type: application/x-encrypted` for requests
+and `Accept: application/x-encrypted` for responses.
 
 ### Default Language
 The default language is **Dutch (nl)**.
     """,
-    version="1.0.0",
-    lifespan=lifespan
+    version=settings.app_version,
+    lifespan=lifespan,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
 )
+
+# Add encryption middleware if enabled
+if settings.encryption_enabled:
+    app.add_middleware(EncryptionMiddleware)
 
 
 # ===================== ENDPOINTS =====================
@@ -111,13 +148,45 @@ async def root():
     """Root endpoint with API info."""
     return {
         "name": settings.app_name,
-        "version": "1.0.0",
-        "description": "Multilingual Grammar Checking API",
+        "version": settings.app_version,
+        "description": "ileterate - Multilingual Grammar Checking API",
+        "documentation": "/docs" if settings.debug else "Disabled in production",
         "endpoints": {
             "check": "/check",
             "languages": "/languages",
-            "health": "/health"
-        }
+            "health": "/health",
+            "public_key": "/security/public-key"
+        },
+        "authentication": "API key required" if settings.api_key else "Disabled"
+    }
+
+
+@app.get("/security/public-key", tags=["Security"])
+async def get_public_key():
+    """
+    Get the server's RSA public key for encryption.
+
+    Returns the public key in PEM format that clients can use
+    to encrypt their requests.
+    """
+    if not settings.encryption_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Encryption not enabled"
+        )
+
+    public_key = encryption_service.get_public_key_pem()
+    if not public_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Encryption service not initialized"
+        )
+
+    return {
+        "public_key": public_key,
+        "algorithm": "RSA-OAEP-SHA256",
+        "key_encryption": "AES-256-GCM",
+        "version": "1.0"
     }
 
 
@@ -146,7 +215,10 @@ The pipeline:
 - `academic`: Scholarly, precise
     """
 )
-async def check_grammar(request: CheckRequest) -> CheckResponse:
+async def check_grammar(
+    request: CheckRequest,
+    _api_key: str = Depends(api_key_middleware)
+) -> CheckResponse:
     """
     Check text for grammar issues and get corrections.
 
@@ -189,7 +261,9 @@ async def check_grammar(request: CheckRequest) -> CheckResponse:
     tags=["Languages"],
     summary="Get supported languages"
 )
-async def get_languages() -> list[LanguageInfo]:
+async def get_languages(
+    _api_key: str = Depends(api_key_middleware)
+) -> list[LanguageInfo]:
     """Get list of supported languages with examples."""
     languages = []
     for code, config in SUPPORTED_LANGUAGES.items():
@@ -208,7 +282,10 @@ async def get_languages() -> list[LanguageInfo]:
     tags=["Languages"],
     summary="Get info for a specific language"
 )
-async def get_language(code: str) -> LanguageInfo:
+async def get_language(
+    code: str,
+    _api_key: str = Depends(api_key_middleware)
+) -> LanguageInfo:
     """Get information about a specific language."""
     if code not in SUPPORTED_LANGUAGES:
         raise HTTPException(
@@ -232,14 +309,18 @@ async def get_language(code: str) -> LanguageInfo:
     summary="Health check"
 )
 async def health_check() -> HealthResponse:
-    """Check health of all services."""
+    """
+    Check health of all services.
+
+    This endpoint does not require authentication.
+    """
     service_status = await pipeline.check_services()
 
     return HealthResponse(
         status="healthy" if service_status["languagetool"] else "degraded",
         languagetool_available=service_status["languagetool"],
         llm_available=service_status["llm"],
-        version="1.0.0"
+        version=settings.app_version
     )
 
 
@@ -248,7 +329,7 @@ async def health_check() -> HealthResponse:
     tags=["System"],
     summary="Cache statistics"
 )
-async def cache_stats():
+async def cache_stats(_api_key: str = Depends(api_key_middleware)):
     """Get cache statistics."""
     return get_cache().get_stats()
 
@@ -258,7 +339,7 @@ async def cache_stats():
     tags=["System"],
     summary="Clear cache"
 )
-async def clear_cache():
+async def clear_cache(_api_key: str = Depends(api_key_middleware)):
     """Clear the grammar check cache."""
     get_cache().clear()
     return {"status": "cleared"}
@@ -285,5 +366,5 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True
+        reload=settings.debug
     )

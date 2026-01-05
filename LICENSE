@@ -19,3 +19,68 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Third-Party Licenses
+
+This project incorporates or depends on the following third-party software:
+
+### LanguageTool
+
+LanguageTool is licensed under the GNU Lesser General Public License (LGPL)
+version 2.1 or later. This project uses LanguageTool as a separate service
+via its HTTP API, which does not require this project to be licensed under LGPL.
+
+- Website: https://languagetool.org/
+- License: LGPL 2.1+
+- Source: https://github.com/languagetool-org/languagetool
+
+### FastAPI
+
+FastAPI is licensed under the MIT License.
+
+- Website: https://fastapi.tiangolo.com/
+- License: MIT
+- Source: https://github.com/tiangolo/fastapi
+
+### Flutter
+
+Flutter is licensed under the BSD 3-Clause License.
+
+- Website: https://flutter.dev/
+- License: BSD 3-Clause
+- Source: https://github.com/flutter/flutter
+
+### Python Dependencies
+
+The Python dependencies used in this project are licensed under various
+open-source licenses (MIT, BSD, Apache 2.0). See the `requirements.txt`
+file for the full list of dependencies.
+
+### Dart/Flutter Dependencies
+
+The Dart/Flutter packages used in this project are licensed under various
+open-source licenses. See `pubspec.yaml` for the full list of dependencies.
+
+---
+
+## Attribution
+
+When using this software, attribution is appreciated but not required.
+If you do choose to provide attribution, you may use:
+
+"Powered by ileterate (https://github.com/1ordo/ileterate)"
+
+---
+
+## Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. THE AUTHORS
+ARE NOT RESPONSIBLE FOR ANY DAMAGES OR LIABILITY ARISING FROM THE USE OF
+THIS SOFTWARE.
+
+This software is designed to assist with grammar checking and text correction.
+While we strive for accuracy, no grammar checking system is perfect. Users
+should review all corrections before accepting them, especially for important
+documents.

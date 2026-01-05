@@ -1,5 +1,5 @@
-name: grammar_checker
-description: Multilingual grammar checking and rewriting application.
+name: ileterate
+description: AI-powered multilingual grammar checking and rewriting application.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -20,6 +20,16 @@ dependencies:
   # Immutable Models
   freezed_annotation: ^2.4.1
   json_annotation: ^4.8.1
+
+  # Security & Encryption
+  pointycastle: ^3.7.4
+  encrypt: ^5.0.3
+
+  # Environment Configuration
+  flutter_dotenv: ^5.1.0
+
+  # Secure Storage
+  flutter_secure_storage: ^9.0.0
 
   # UI Components
   shimmer: ^3.0.0

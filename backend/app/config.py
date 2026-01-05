@@ -6,7 +6,8 @@ for easy modification and deployment configuration.
 """
 
 from pydantic_settings import BaseSettings
-from typing import Dict, List
+from pydantic import Field
+from typing import Dict, List, Optional
 from functools import lru_cache
 
 
@@ -14,31 +15,50 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     # Service Configuration
-    app_name: str = "Grammar Check API"
+    app_name: str = "ileterate Grammar API"
+    app_version: str = "1.0.0"
     debug: bool = False
+    log_level: str = "INFO"
 
     # LanguageTool Configuration
     languagetool_url: str = "http://localhost:8081/v2"
     languagetool_timeout: int = 30
 
     # LLM Configuration
-    llm_url: str = "http://192.168.1.77:1234/v1/chat/completions"
-    llm_model: str = "openai/gpt-oss-120b"
+    llm_url: str = "http://localhost:1234/v1/chat/completions"
+    llm_model: str = "gpt-4"
+    llm_api_key: Optional[str] = None  # For OpenAI or other providers
     llm_temperature: float = 0.1  # Low for deterministic output
     llm_max_tokens: int = 2048
     llm_timeout: int = 60
+
+    # API Security
+    api_key: Optional[str] = Field(default=None, description="API key for authentication")
+    encryption_enabled: bool = Field(default=False, description="Enable E2E encryption")
+    rsa_private_key_path: Optional[str] = None
+    rsa_public_key_path: Optional[str] = None
+
+    # Rate Limiting
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 100  # requests per window
+    rate_limit_window: int = 60  # seconds
 
     # Processing Configuration
     max_text_length: int = 10000
     chunk_size: int = 1000  # Characters per chunk
     cache_ttl: int = 300  # Cache TTL in seconds
+    cache_max_size: int = 1000  # Max cache entries
 
     # CORS Configuration
     cors_origins: List[str] = ["*"]
+    cors_allow_credentials: bool = True
+    cors_allow_methods: List[str] = ["*"]
+    cors_allow_headers: List[str] = ["*"]
 
     class Config:
         env_file = ".env"
         env_prefix = "GRAMMAR_"
+        case_sensitive = False
 
 
 # Language Configuration

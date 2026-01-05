@@ -1,0 +1,118 @@
+# ileterate - Unified Docker Compose Configuration
+#
+# This runs the complete grammar checking API as a single service.
+# Combines LanguageTool (rule-based) and the FastAPI backend.
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose logs -f            # View logs
+#   docker-compose down               # Stop all services
+#   docker-compose up -d --build      # Rebuild and start
+#
+# Access:
+#   API: http://localhost:8000
+#   Health: http://localhost:8000/health
+#   Docs: http://localhost:8000/docs
+
+services:
+  # ============================================
+  # LanguageTool - Rule-based Grammar Checker
+  # ============================================
+  languagetool:
+    image: erikvl87/languagetool:latest
+    container_name: ileterate-languagetool
+    environment:
+      - Java_Xms=${LANGUAGETOOL_JAVA_XMS:-512m}
+      - Java_Xmx=${LANGUAGETOOL_JAVA_XMX:-2g}
+      - langtool_languageModel=/ngrams
+    volumes:
+      - ./languagetool/ngrams:/ngrams:ro
+    networks:
+      - ileterate-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/v2/languages"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: ${LANGUAGETOOL_MEMORY_LIMIT:-2G}
+        reservations:
+          memory: 512M
+
+  # ============================================
+  # API Gateway - FastAPI Backend
+  # ============================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ileterate-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Service URLs (internal network)
+      - GRAMMAR_LANGUAGETOOL_URL=http://languagetool:8010/v2
+      - GRAMMAR_LLM_URL=${LLM_URL:-http://host.docker.internal:1234/v1/chat/completions}
+
+      # LLM Configuration
+      - GRAMMAR_LLM_MODEL=${LLM_MODEL:-gpt-4}
+      - GRAMMAR_LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.1}
+      - GRAMMAR_LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-2048}
+      - GRAMMAR_LLM_TIMEOUT=${LLM_TIMEOUT:-60}
+
+      # API Security
+      - GRAMMAR_API_KEY=${API_KEY:-}
+      - GRAMMAR_ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-false}
+      - GRAMMAR_RSA_PRIVATE_KEY_PATH=/app/keys/private.pem
+      - GRAMMAR_RSA_PUBLIC_KEY_PATH=/app/keys/public.pem
+
+      # CORS Configuration
+      - GRAMMAR_CORS_ORIGINS=${CORS_ORIGINS:-["*"]}
+
+      # Processing Configuration
+      - GRAMMAR_MAX_TEXT_LENGTH=${MAX_TEXT_LENGTH:-10000}
+      - GRAMMAR_CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - GRAMMAR_CACHE_TTL=${CACHE_TTL:-300}
+
+      # Logging
+      - GRAMMAR_DEBUG=${DEBUG:-false}
+      - GRAMMAR_LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./keys:/app/keys:ro
+    networks:
+      - ileterate-internal
+    depends_on:
+      languagetool:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-1G}
+        reservations:
+          memory: 256M
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  ileterate-internal:
+    name: ileterate-network
+    driver: bridge
+
+# ============================================
+# Volumes (optional persistent storage)
+# ============================================
+volumes:
+  languagetool-ngrams:
+    driver: local

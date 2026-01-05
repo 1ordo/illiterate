@@ -163,6 +163,18 @@ Icon
 ._*
 
 # ===================================
+# Security / Keys
+# ===================================
+# RSA keys for encryption
+keys/
+*.pem
+*.key
+
+# API keys and secrets
+secrets/
+*.secret
+
+# ===================================
 # General
 # ===================================
 *.tmp
@@ -172,3 +184,9 @@ Icon
 *~
 .project
 .settings/
+
+# ===================================
+# Editor / IDE specific
+# ===================================
+.cursor/
+*.code-workspace

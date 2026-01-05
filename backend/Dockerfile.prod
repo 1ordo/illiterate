@@ -1,0 +1,77 @@
+# ileterate Grammar API - Production Dockerfile
+#
+# Multi-stage build for optimized production image
+# Includes security hardening and non-root user
+
+# Build stage
+FROM python:3.11-slim as builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Security: Create non-root user
+RUN groupadd -r ileterate && useradd -r -g ileterate ileterate
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy application code
+COPY --chown=ileterate:ileterate app/ ./app/
+
+# Create keys directory
+RUN mkdir -p /app/keys && chown ileterate:ileterate /app/keys
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GRAMMAR_DEBUG=false \
+    GRAMMAR_LOG_LEVEL=WARNING
+
+# Security: Remove unnecessary files
+RUN find /opt/venv -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true && \
+    find /opt/venv -type f -name '*.pyc' -delete 2>/dev/null || true
+
+# Switch to non-root user
+USER ileterate
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run with gunicorn for production
+CMD ["gunicorn", "app.main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--workers", "4", \
+     "--bind", "0.0.0.0:8000", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--capture-output"]
