@@ -190,3 +190,4 @@ secrets/
 # ===================================
 .cursor/
 *.code-workspace
+.env.prod

@@ -12,7 +12,7 @@ class AppConfig {
   static String get apiBaseUrl {
     const url = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'http://localhost:8000',
+      defaultValue: 'https://illiterate.moke.studio',
     );
     return url;
   }

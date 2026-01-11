@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -19,6 +17,7 @@ class ApiService {
   late final Dio _dio;
   final EncryptionService? _encryptionService;
   String? _serverPublicKey;
+  bool _encryptionInitialized = false;
 
   ApiService({EncryptionService? encryptionService})
       : _encryptionService = encryptionService {
@@ -43,34 +42,56 @@ class ApiService {
         logPrint: (msg) => debugPrint('[API] $msg'),
       ));
     }
-
-    // Initialize encryption if enabled
-    if (AppConfig.encryptionEnabled && _encryptionService != null) {
-      _initializeEncryption();
-    }
   }
 
   /// Initialize encryption by fetching server's public key
-  Future<void> _initializeEncryption() async {
+  /// This should be called before making encrypted requests
+  Future<bool> initializeEncryption() async {
+    if (!AppConfig.encryptionEnabled || _encryptionService == null) {
+      debugPrint('[API] Encryption not enabled or service not provided');
+      return false;
+    }
+
+    if (_encryptionInitialized) {
+      return true;
+    }
+
     try {
+      debugPrint('[API] Fetching server public key...');
       final response = await _dio.get('/security/public-key');
       _serverPublicKey = response.data['public_key'];
 
-      if (_serverPublicKey != null && _encryptionService != null) {
+      if (_serverPublicKey != null) {
         _encryptionService!.initialize(_serverPublicKey!);
-        debugPrint('[API] Encryption initialized');
+        _encryptionInitialized = true;
+        debugPrint('[API] Encryption initialized successfully');
+        debugPrint('[API] Algorithm: ${response.data['algorithm']}');
+        debugPrint('[API] Key Encryption: ${response.data['key_encryption']}');
+        return true;
       }
     } catch (e) {
       debugPrint('[API] Failed to initialize encryption: $e');
     }
+    return false;
   }
+
+  /// Check if encryption is ready
+  bool get isEncryptionReady =>
+      _encryptionInitialized &&
+      _encryptionService != null &&
+      _encryptionService!.isInitialized;
 
   /// Check grammar for the given text.
   Future<CorrectionResult> checkGrammar(CheckRequest request) async {
     try {
       final data = request.toJson();
 
-      // Encrypt if enabled
+      // Initialize encryption if enabled but not yet initialized
+      if (AppConfig.encryptionEnabled && !_encryptionInitialized) {
+        await initializeEncryption();
+      }
+
+      // Encrypt if enabled and initialized
       if (_shouldEncrypt()) {
         return await _checkGrammarEncrypted(data);
       }
@@ -86,10 +107,13 @@ class ApiService {
     }
   }
 
-  /// Check grammar with encrypted payload
+  /// Check grammar with encrypted request and response
   Future<CorrectionResult> _checkGrammarEncrypted(
       Map<String, dynamic> data) async {
+    // Encrypt the request payload
     final encrypted = _encryptionService!.encrypt(data);
+
+    debugPrint('[API] Sending encrypted request...');
 
     final response = await _dio.post(
       ApiConstants.check,
@@ -97,10 +121,26 @@ class ApiService {
       options: Options(
         headers: {
           'Content-Type': 'application/x-encrypted',
+          // Request encrypted response from server
+          'Accept': 'application/x-encrypted, application/json',
         },
       ),
     );
 
+    // Check if response is encrypted
+    final contentType = response.headers.value('content-type') ?? '';
+    if (contentType.contains('application/x-encrypted')) {
+      debugPrint('[API] Received encrypted response, decrypting...');
+      // Parse and decrypt the response
+      final encryptedResponse = EncryptedPayload.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+      final decryptedData = _encryptionService!.decryptResponse(encryptedResponse);
+      return CorrectionResult.fromJson(decryptedData);
+    }
+
+    // Response is not encrypted (server may not support response encryption)
+    debugPrint('[API] Received plain response');
     return CorrectionResult.fromJson(response.data);
   }
 
@@ -151,13 +191,13 @@ class ApiService {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return ApiException(
+        return const ApiException(
           'Connection timeout. Please check your connection.',
           code: 'TIMEOUT',
         );
 
       case DioExceptionType.connectionError:
-        return ApiException(
+        return const ApiException(
           'Cannot connect to server. Please check if the backend is running.',
           code: 'CONNECTION_ERROR',
         );
@@ -167,21 +207,21 @@ class ApiService {
         final message = e.response?.data?['detail'] ?? 'Server error';
 
         if (statusCode == 401) {
-          return ApiException(
+          return const ApiException(
             'Authentication required. Please check your API key.',
             code: 'UNAUTHORIZED',
           );
         } else if (statusCode == 403) {
-          return ApiException(
+          return const ApiException(
             'Invalid API key.',
             code: 'FORBIDDEN',
           );
         } else if (statusCode == 400) {
           return ApiException(message, code: 'BAD_REQUEST');
         } else if (statusCode == 404) {
-          return ApiException('Endpoint not found', code: 'NOT_FOUND');
+          return const ApiException('Endpoint not found', code: 'NOT_FOUND');
         } else if (statusCode == 500) {
-          return ApiException(
+          return const ApiException(
             'Server error. Please try again later.',
             code: 'SERVER_ERROR',
           );
