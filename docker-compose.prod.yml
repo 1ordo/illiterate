@@ -30,8 +30,6 @@ services:
       - langtool_languageModel=/ngrams
     volumes:
       - ./languagetool/ngrams:/ngrams:ro
-    networks:
-      - ileterate-internal
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/v2/languages"]
@@ -100,8 +98,6 @@ services:
       - GRAMMAR_LOG_LEVEL=${LOG_LEVEL:-WARNING}
     volumes:
       - /opt/ileterate/keys:/app/keys:ro
-    networks:
-      - ileterate-internal
     depends_on:
       languagetool:
         condition: service_healthy
@@ -126,11 +122,4 @@ services:
         max-size: "100m"
         max-file: "10"
 
-# ============================================
-# Networks
-# ============================================
-networks:
-  ileterate-internal:
-    name: ileterate-network-prod
-    driver: bridge
-    internal: false
+# Networks are managed by Coolify
