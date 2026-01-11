@@ -63,11 +63,17 @@ services:
       - "8085:8000"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ileterate-api.rule=Host(`illiterate.moke.studio`)"
-      - "traefik.http.routers.ileterate-api.entrypoints=http,https"
-      - "traefik.http.routers.ileterate-api-secure.rule=Host(`illiterate.moke.studio`)"
-      - "traefik.http.routers.ileterate-api-secure.entrypoints=https"
-      - "traefik.http.routers.ileterate-api-secure.tls=true"
+      # HTTP router
+      - "traefik.http.routers.ileterate-api-http.rule=Host(`illiterate.moke.studio`)"
+      - "traefik.http.routers.ileterate-api-http.entrypoints=web"
+      - "traefik.http.routers.ileterate-api-http.service=ileterate-api"
+      # HTTPS router
+      - "traefik.http.routers.ileterate-api-https.rule=Host(`illiterate.moke.studio`)"
+      - "traefik.http.routers.ileterate-api-https.entrypoints=websecure"
+      - "traefik.http.routers.ileterate-api-https.tls=true"
+      - "traefik.http.routers.ileterate-api-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ileterate-api-https.service=ileterate-api"
+      # Service definition
       - "traefik.http.services.ileterate-api.loadbalancer.server.port=8000"
       - "traefik.docker.network=coolify"
     networks:
