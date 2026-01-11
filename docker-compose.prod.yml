@@ -99,8 +99,7 @@ services:
     volumes:
       - /opt/ileterate/keys:/app/keys:ro
     depends_on:
-      languagetool:
-        condition: service_healthy
+      - languagetool
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
