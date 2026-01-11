@@ -61,6 +61,16 @@ services:
     container_name: ileterate-api-prod
     ports:
       - "8085:8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ileterate-api.rule=Host(`illiterate.moke.studio`)"
+      - "traefik.http.routers.ileterate-api.entrypoints=https"
+      - "traefik.http.routers.ileterate-api.tls=true"
+      - "traefik.http.routers.ileterate-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ileterate-api.loadbalancer.server.port=8000"
+    networks:
+      - default
+      - coolify
     environment:
       # Service URLs (internal network)
       - GRAMMAR_LANGUAGETOOL_URL=http://languagetool:8010/v2
@@ -120,7 +130,10 @@ services:
         max-size: "100m"
         max-file: "10"
 
-# Default network - Coolify will add its proxy network automatically
+# Networks
 networks:
   default:
     name: ileterate-network
+  coolify:
+    external: true
+    name: coolify
