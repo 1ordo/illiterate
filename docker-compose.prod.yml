@@ -60,7 +60,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: ileterate-api-prod
     ports:
-      - "8000:8000"
+      - "8085:8000"
     environment:
       # Service URLs (internal network)
       - GRAMMAR_LANGUAGETOOL_URL=http://languagetool:8010/v2
