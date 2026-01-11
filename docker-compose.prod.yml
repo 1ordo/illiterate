@@ -99,7 +99,7 @@ services:
       - GRAMMAR_DEBUG=false
       - GRAMMAR_LOG_LEVEL=${LOG_LEVEL:-WARNING}
     volumes:
-      - ./keys:/app/keys:ro
+      - /opt/ileterate/keys:/app/keys:ro
     networks:
       - ileterate-internal
     depends_on:
