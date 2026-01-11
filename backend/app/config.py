@@ -7,8 +7,8 @@ for easy modification and deployment configuration.
 
 import json
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
-from typing import Dict, List, Optional, Union
+from pydantic import Field, computed_field
+from typing import Dict, List, Optional
 from functools import lru_cache
 
 
@@ -53,28 +53,28 @@ class Settings(BaseSettings):
     # CORS Configuration
     # Can be set as comma-separated string: "https://example.com,https://other.com"
     # Or as JSON array: '["https://example.com","https://other.com"]'
-    cors_origins: List[str] = ["*"]
+    # Or just "*" for all origins
+    cors_origins_raw: str = Field(default="*", validation_alias="cors_origins")
     cors_allow_credentials: bool = True
     cors_allow_methods: List[str] = ["*"]
     cors_allow_headers: List[str] = ["*"]
 
-    @field_validator('cors_origins', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from string or list."""
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            v = v.strip()
-            # Try JSON array first
-            if v.startswith('['):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # Fall back to comma-separated
-            return [origin.strip() for origin in v.split(',') if origin.strip()]
-        return ["*"]
+    @computed_field
+    @property
+    def cors_origins(self) -> List[str]:
+        """Parse CORS origins from string."""
+        v = self.cors_origins_raw.strip()
+        # Handle wildcard
+        if v == "*":
+            return ["*"]
+        # Try JSON array first
+        if v.startswith('['):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                pass
+        # Fall back to comma-separated
+        return [origin.strip() for origin in v.split(',') if origin.strip()]
 
     class Config:
         env_file = ".env"
