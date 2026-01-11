@@ -64,10 +64,12 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ileterate-api.rule=Host(`illiterate.moke.studio`)"
-      - "traefik.http.routers.ileterate-api.entrypoints=https"
-      - "traefik.http.routers.ileterate-api.tls=true"
-      - "traefik.http.routers.ileterate-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ileterate-api.entrypoints=http,https"
+      - "traefik.http.routers.ileterate-api-secure.rule=Host(`illiterate.moke.studio`)"
+      - "traefik.http.routers.ileterate-api-secure.entrypoints=https"
+      - "traefik.http.routers.ileterate-api-secure.tls=true"
       - "traefik.http.services.ileterate-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=coolify"
     networks:
       - default
       - coolify
