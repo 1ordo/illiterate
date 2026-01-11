@@ -83,7 +83,8 @@ services:
       - GRAMMAR_RSA_PUBLIC_KEY_PATH=/app/keys/public.pem
 
       # CORS Configuration (restrict in production)
-      - GRAMMAR_CORS_ORIGINS=${CORS_ORIGINS:-["https://yourdomain.com"]}
+      # Supports: comma-separated "https://a.com,https://b.com" or single "*"
+      - GRAMMAR_CORS_ORIGINS=${CORS_ORIGINS:-*}
 
       # Rate Limiting
       - GRAMMAR_RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
